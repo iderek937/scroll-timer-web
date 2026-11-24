@@ -5,9 +5,12 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 
 const MIN = 1
 const MAX = 90
+const PLUS = -1
 const INTRO_END = 10
 const VALUES = Array.from({ length: MAX - MIN + 1 }, (_, index) => MAX - index)
-const ALL_VALUES = [...VALUES]
+const ALL_VALUES = [...VALUES, PLUS]
+
+const indexOf = (value: number) => (value === PLUS ? MAX : MAX - value)
 
 type Engine = {
   renderer: THREE.WebGLRenderer
@@ -19,6 +22,7 @@ type Engine = {
   baseY: Map<number, number>
   geometries: THREE.BufferGeometry[]
   digitHeight: number
+  plusRatio: number
   shadow: THREE.ShadowMaterial
   pxPerUnit: number
   spacing: number
@@ -37,11 +41,13 @@ export function Scroller3D() {
   const activeRef = useRef(INTRO_END)
   const selectedRef = useRef(INTRO_END)
   const modeRef = useRef<'scroll' | 'timer'>('scroll')
+  const kindRef = useRef<'countdown' | 'uptime'>('countdown')
   const targetRef = useRef(0)
   const progressRef = useRef(0)
 
   const [active, setActive] = useState(INTRO_END)
   const [mode, setMode] = useState<'scroll' | 'timer'>('scroll')
+  const [kind, setKind] = useState<'countdown' | 'uptime'>('countdown')
   const [remaining, setRemaining] = useState(0)
   const [itemHeight, setItemHeight] = useState(() => Math.round(window.innerHeight * 0.77))
   const [digitHalf, setDigitHalf] = useState(() => Math.round(window.innerHeight * 0.31))
@@ -54,7 +60,7 @@ export function Scroller3D() {
     const engine = engineRef.current
     const list = listRef.current
     if (!engine || !list) return
-    const top = (MAX - value) * engine.spacing * engine.pxPerUnit
+    const top = indexOf(value) * engine.spacing * engine.pxPerUnit
     list.scrollTop = top
     engine.rail.position.y = top / engine.pxPerUnit
   }, [])
@@ -140,8 +146,13 @@ export function Scroller3D() {
       engine.scaleY = scale
 
       engine.groups.forEach((group, value) => {
-        group.scale.set(engine.scaleX, engine.scaleY, engine.scaleY)
-        const y = -(MAX - value) * engine.spacing
+        if (value === PLUS) {
+          const plusScale = scale * 0.72
+          group.scale.set(plusScale * engine.plusRatio, plusScale, plusScale)
+        } else {
+          group.scale.set(engine.scaleX, engine.scaleY, engine.scaleY)
+        }
+        const y = -indexOf(value) * engine.spacing
         engine.baseY.set(value, y)
         group.position.y = y
       })
@@ -151,7 +162,7 @@ export function Scroller3D() {
       setDigitHalf((engine.digitHeight * scale * engine.pxPerUnit) / 2)
 
       const value = modeRef.current === 'timer' ? selectedRef.current : activeRef.current
-      const top = (MAX - value) * heightPx
+      const top = indexOf(value) * heightPx
       list.scrollTop = top
       engine.rail.position.y = top / engine.pxPerUnit
     }
@@ -163,7 +174,7 @@ export function Scroller3D() {
       if (modeRef.current === 'timer') return
 
       const index = Math.round(list.scrollTop / (engine.spacing * engine.pxPerUnit))
-      const value = MAX - Math.min(MAX - MIN, Math.max(0, index))
+      const value = index >= MAX ? PLUS : MAX - Math.min(MAX - MIN, Math.max(0, index))
       if (activeRef.current !== value) {
         activeRef.current = value
         setActive(value)
@@ -219,8 +230,8 @@ export function Scroller3D() {
         const geometries: THREE.BufferGeometry[] = []
         const widths: number[] = []
 
-        for (let digit = 0; digit <= 9; digit += 1) {
-          const geometry = new TextGeometry(String(digit), {
+        const makeGeometry = (text: string) => {
+          const geometry = new TextGeometry(text, {
             font,
             size: 1,
             depth: 0.22,
@@ -236,9 +247,16 @@ export function Scroller3D() {
           const height = box.max.y - box.min.y
           geometry.translate(-(box.min.x + box.max.x) / 2, -(box.min.y + box.max.y) / 2, -0.11)
           geometry.userData = { width, height }
-          widths[digit] = width
           geometries.push(geometry)
+          return geometry
         }
+
+        for (let digit = 0; digit <= 9; digit += 1) {
+          const geometry = makeGeometry(String(digit))
+          widths[digit] = geometry.userData.width as number
+        }
+
+        const plusGeometry = makeGeometry('+')
 
         const groups = new Map<number, THREE.Group>()
         const materials = new Map<number, THREE.MeshStandardMaterial>()
@@ -246,8 +264,11 @@ export function Scroller3D() {
         const gap = 0.015
 
         ALL_VALUES.forEach((value) => {
-          const digits = String(value).split('').map(Number)
-          const totalWidth = digits.reduce((sum, digit) => sum + widths[digit], 0) + gap * (digits.length - 1)
+          const isPlus = value === PLUS
+          const digits = isPlus ? [] : String(value).split('').map(Number)
+          const totalWidth = isPlus
+            ? plusGeometry.userData.width
+            : digits.reduce((sum, digit) => sum + widths[digit], 0) + gap * (digits.length - 1)
           const group = new THREE.Group()
           group.userData = { width: totalWidth }
           const material = new THREE.MeshStandardMaterial({
@@ -257,6 +278,12 @@ export function Scroller3D() {
             transparent: true,
             opacity: 1,
           })
+
+          if (isPlus) {
+            const mesh = new THREE.Mesh(plusGeometry, material)
+            mesh.castShadow = true
+            group.add(mesh)
+          }
 
           let cursor = -totalWidth / 2
           digits.forEach((digit) => {
@@ -283,6 +310,7 @@ export function Scroller3D() {
           baseY,
           geometries,
           digitHeight: geometries[0].userData.height as number,
+          plusRatio: (plusGeometry.userData.height as number) / (plusGeometry.userData.width as number),
           shadow,
           pxPerUnit: 1,
           spacing: 1,
@@ -361,14 +389,14 @@ export function Scroller3D() {
 
   useEffect(() => {
     if (mode !== 'timer') return
-    if (remaining === 0) return
+    if (kind === 'countdown' && remaining === 0) return
 
     const timer = window.setTimeout(() => {
-      setRemaining((current) => Math.max(0, current - 1))
+      setRemaining((current) => kind === 'uptime' ? current + 1 : Math.max(0, current - 1))
     }, 1000)
 
     return () => window.clearTimeout(timer)
-  }, [mode, remaining])
+  }, [mode, kind, remaining])
 
   const enterTimer = useCallback((value: number) => {
     if (modeRef.current === 'timer') return
@@ -376,9 +404,11 @@ export function Scroller3D() {
     activeRef.current = value
     setActive(value)
     modeRef.current = 'timer'
+    kindRef.current = value === PLUS ? 'uptime' : 'countdown'
     targetRef.current = 1
     setMode('timer')
-    setRemaining(value * 60)
+    setKind(kindRef.current)
+    setRemaining(value === PLUS ? 0 : value * 60)
   }, [])
 
   const exitTimer = useCallback(() => {
@@ -431,6 +461,16 @@ export function Scroller3D() {
             />
           </div>
         ))}
+        <div className="scroller__item" key="plus" role="listitem">
+          <button
+            type="button"
+            className="scroller__hit"
+            onClick={() => enterTimer(PLUS)}
+            tabIndex={active === PLUS && mode === 'scroll' ? 0 : -1}
+            aria-hidden={active !== PLUS || mode === 'timer'}
+            aria-label="Start counting up from zero"
+          />
+        </div>
       </div>
 
       {mode === 'timer' && (
@@ -439,9 +479,12 @@ export function Scroller3D() {
             type="button"
             className="timer-hit"
             onClick={exitTimer}
-            aria-label="Return to the scroller"
+            aria-label="Stop the timer and return to the scroller"
           />
-          <div className="timer-readout" aria-label={`${minutes} minutes and ${seconds} seconds remaining`}>
+          <div
+            className="timer-readout"
+            aria-label={`${minutes} minutes and ${seconds} seconds ${kind === 'uptime' ? 'elapsed' : 'remaining'}`}
+          >
             {`${pad(minutes)}:${pad(seconds)}`}
           </div>
         </>
