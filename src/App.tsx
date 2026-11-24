@@ -1,11 +1,5 @@
+import { Scroller3D } from './Scroller3D'
 
-function App() {
-
-  return (
-    <>
-      <div className="">Scroll Timer</div>
-    </>
-  )
+export default function App() {
+  return <Scroller3D />
 }
-
-export default App

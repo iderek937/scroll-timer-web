@@ -1,0 +1,154 @@
+:root {
+	color-scheme: light;
+	font-family:
+		ui-sans-serif,
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		sans-serif;
+	-webkit-font-smoothing: antialiased;
+	--press: 0px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	overflow: hidden;
+	background: #fff;
+	color: #fff;
+}
+
+.app {
+	position: relative;
+	height: 100dvh;
+	background: #fff;
+	transition: background 500ms ease;
+}
+
+.app.is-timer {
+	background: #fff;
+	color: #000;
+}
+
+/* WebGL layer with the extruded digit models */
+
+.stage {
+	position: fixed;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+}
+
+.stage canvas {
+	display: block;
+}
+
+/* Transparent scroll layer that drives the 3D rail */
+
+.scroller {
+	position: relative;
+	z-index: 2;
+	height: 100dvh;
+	padding-block: calc((100dvh - var(--item-height)) / 2);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scroll-snap-type: y mandatory;
+	scrollbar-width: none;
+	outline: none;
+}
+
+.scroller::-webkit-scrollbar {
+	display: none;
+}
+
+.scroller.is-idle {
+	overflow: hidden;
+}
+
+.scroller__item {
+	height: var(--item-height);
+	display: grid;
+	place-items: center;
+	scroll-snap-align: center;
+}
+
+.scroller__hit {
+	appearance: none;
+	border: 0;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+	background: transparent;
+	cursor: pointer;
+}
+
+.scroller.is-idle .scroller__hit {
+	pointer-events: none;
+}
+
+/* Click target that follows the pressed 3D digit */
+
+.timer-hit {
+	position: fixed;
+	z-index: 3;
+	left: 50%;
+	top: calc(50% + var(--press));
+	transform: translate(-50%, -50%);
+	width: min(80vw, 70vh);
+	height: min(70vh, 60vw);
+	appearance: none;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	cursor: pointer;
+}
+
+/* Plain 2D seconds readout below the centered model */
+
+.timer-readout {
+	position: fixed;
+	z-index: 4;
+	pointer-events: none;
+	left: 50%;
+	top: calc(50% + var(--digit-half) + -68.5vh);
+	transform: translateX(-50%);
+	color: #111;
+	font-size: clamp(1.5rem, 5vh, 3.5rem);
+	font-weight: 500;
+	line-height: 1;
+	letter-spacing: 0.04em;
+	font-variant-numeric: tabular-nums;
+	animation: readout-in 400ms ease both;
+}
+
+@keyframes readout-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, 8px);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.timer-readout {
+		animation: none;
+	}
+}
+
+@media (max-width: 600px) {
+	.timer-readout {
+		top: calc(50% + var(--digit-half) + -43.5vh);
+	}
+}
