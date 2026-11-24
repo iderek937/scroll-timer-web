@@ -127,14 +127,19 @@ export function Scroller3D() {
 
       const width = window.innerWidth
       const height = window.innerHeight
+      const mobile = width <= 600
+
+      // Keep the desktop light exactly as-is; pull it closer to centre on mobile so the shadow hugs the digit.
+      key.position.set(mobile ? 3 : 4, mobile ? 2 : 3, 15)
+
       engine.renderer.setSize(width, height)
       engine.camera.aspect = width / height
       engine.camera.updateProjectionMatrix()
 
       const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(engine.camera.fov / 2)) * engine.camera.position.z
       const visibleWidth = visibleHeight * engine.camera.aspect
-      const narrow = width <= 600 ? 0.82 : 0.9
-      const maxWidth = (width <= 600 ? 0.74 : 0.86) * visibleWidth
+      const narrow = mobile ? 0.82 : 0.9
+      const maxWidth = (mobile ? 0.74 : 0.86) * visibleWidth
       const scale = Math.min(
         (0.52 * visibleHeight) / engine.digitHeight,
         maxWidth / (engine.groups.get(88)!.userData.width * narrow),
@@ -142,7 +147,7 @@ export function Scroller3D() {
 
       const digitWorld = engine.digitHeight * scale
       engine.pxPerUnit = height / visibleHeight
-      engine.spacing = width <= 600
+      engine.spacing = mobile
         ? Math.max(digitWorld + 0.04 * visibleHeight, 0.47 * visibleHeight + digitWorld / 2)
         : digitWorld + 0.14 * visibleHeight
       engine.scaleX = scale * narrow
