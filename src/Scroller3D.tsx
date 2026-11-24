@@ -49,8 +49,8 @@ export function Scroller3D() {
   const [mode, setMode] = useState<'scroll' | 'timer'>('scroll')
   const [kind, setKind] = useState<'countdown' | 'uptime'>('countdown')
   const [remaining, setRemaining] = useState(0)
-  const [itemHeight, setItemHeight] = useState(() => Math.round(window.innerHeight * 0.77))
-  const [digitHalf, setDigitHalf] = useState(() => Math.round(window.innerHeight * 0.31))
+  const [itemHeight, setItemHeight] = useState(() => Math.round(window.innerHeight * 0.66))
+  const [digitHalf, setDigitHalf] = useState(() => Math.round(window.innerHeight * 0.26))
 
   useEffect(() => {
     activeRef.current = active
@@ -136,12 +136,15 @@ export function Scroller3D() {
       const narrow = width <= 600 ? 0.82 : 0.9
       const maxWidth = (width <= 600 ? 0.74 : 0.86) * visibleWidth
       const scale = Math.min(
-        (0.62 * visibleHeight) / engine.digitHeight,
+        (0.52 * visibleHeight) / engine.digitHeight,
         maxWidth / (engine.groups.get(88)!.userData.width * narrow),
       )
 
+      const digitWorld = engine.digitHeight * scale
       engine.pxPerUnit = height / visibleHeight
-      engine.spacing = engine.digitHeight * scale * 1.25
+      engine.spacing = width <= 600
+        ? Math.max(digitWorld + 0.04 * visibleHeight, 0.47 * visibleHeight + digitWorld / 2)
+        : digitWorld + 0.14 * visibleHeight
       engine.scaleX = scale * narrow
       engine.scaleY = scale
 
