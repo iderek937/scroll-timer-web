@@ -88,10 +88,10 @@ export function Scroller3D() {
     const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100)
     camera.position.set(0, 0, 12)
 
-    // Light comes from the top-centre/right, so shadows fall down and to the left.
+    // Light stays to the right but sits nearer the vertical middle, so shadows stay close to the digits.
     scene.add(new THREE.AmbientLight(0xffffff, 1.1))
     const key = new THREE.DirectionalLight(0xffffff, 2.1)
-    key.position.set(5, 7, 9)
+    key.position.set(4, 3, 15)
     key.castShadow = true
     key.shadow.mapSize.set(1024, 1024)
     key.shadow.camera.left = -12
