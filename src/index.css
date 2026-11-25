@@ -30,13 +30,16 @@ body {
 .app {
 	position: relative;
 	height: 100dvh;
-	background: #fff;
+	background: var(--scroller-bg, #fff);
+	color: var(--scroller-digits, #fff);
+	--ui-color: var(--scroller-digits, #fff);
 	transition: background 500ms ease;
 }
 
 .app.is-timer {
-	background: #fff;
-	color: #000;
+	background: var(--timer-bg, #fff);
+	color: var(--timer-digits, #000);
+	--ui-color: var(--timer-digits, #000);
 }
 
 /* WebGL layer with the extruded digit models */
@@ -121,7 +124,7 @@ body {
 	left: 50%;
 	top: calc(50% + var(--digit-half) + -68.5vh);
 	transform: translateX(-50%);
-	color: #111;
+	color: var(--timer-digits, #111);
 	font-size: clamp(1.5rem, 5vh, 3.5rem);
 	font-weight: 500;
 	line-height: 1;
@@ -150,5 +153,229 @@ body {
 @media (max-width: 600px) {
 	.timer-readout {
 		top: calc(50% + var(--digit-half) + -43.5vh);
+	}
+}
+
+/* Settings icon and skin drawer */
+
+.settings-button {
+	position: fixed;
+	z-index: 6;
+	top: max(16px, env(safe-area-inset-top));
+	right: max(16px, env(safe-area-inset-right));
+	display: grid;
+	place-items: center;
+	width: 42px;
+	height: 42px;
+	padding: 9px;
+	appearance: none;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--ui-color, currentColor);
+	cursor: pointer;
+	opacity: 0.75;
+	transition:
+		opacity 180ms ease,
+		transform 180ms ease;
+}
+
+.settings-button:hover {
+	opacity: 1;
+	transform: rotate(25deg);
+}
+
+.settings-button svg {
+	width: 100%;
+	height: 100%;
+}
+
+.drawer-scrim {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	appearance: none;
+	border: 0;
+	background: rgb(0 0 0 / 45%);
+	cursor: default;
+}
+
+.drawer {
+	position: fixed;
+	z-index: 11;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: min(420px, 90vw);
+	display: flex;
+	flex-direction: column;
+	padding: 28px 24px;
+	background: #11131a;
+	color: #f8fafc;
+	box-shadow: -20px 0 60px rgb(0 0 0 / 35%);
+	animation: drawer-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.drawer__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.drawer__header h2 {
+	margin: 0;
+	font-size: 1.25rem;
+	font-weight: 600;
+}
+
+.drawer__close {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-size: 1.75rem;
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0.7;
+}
+
+.drawer__close:hover {
+	opacity: 1;
+}
+
+.drawer__section-title {
+	margin: 32px 0 12px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	opacity: 0.6;
+}
+
+.skin-list {
+	display: flex;
+	gap: 12px;
+	overflow-x: auto;
+	padding: 2px 2px 14px;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: thin;
+}
+
+.skin-card {
+	flex: 0 0 148px;
+	scroll-snap-align: start;
+	appearance: none;
+	padding: 8px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 18px;
+	background: rgb(255 255 255 / 4%);
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		border-color 180ms ease,
+		background 180ms ease;
+}
+
+.skin-card.is-selected {
+	border-color: #f8fafc;
+	background: rgb(255 255 255 / 10%);
+}
+
+.skin-card__preview {
+	position: relative;
+	display: grid;
+	place-items: center;
+	height: 92px;
+	border-radius: 12px;
+	overflow: hidden;
+}
+
+.skin-card__preview > span:first-child {
+	font-size: 2.25rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.skin-card__timer {
+	position: absolute;
+	right: 8px;
+	bottom: 8px;
+	left: 8px;
+	padding: 3px 0;
+	border-radius: 6px;
+	font-size: 0.7rem;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.skin-card__name {
+	display: block;
+	margin-top: 10px;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
+.drawer__save {
+	appearance: none;
+	margin-top: auto;
+	width: 100%;
+	padding: 14px 18px;
+	border: 0;
+	border-radius: 12px;
+	background: #f8fafc;
+	color: #11131a;
+	font-size: 0.95rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.drawer__save:hover {
+	background: #fff;
+}
+
+@keyframes drawer-from-right {
+	from {
+		transform: translateX(100%);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+
+@media (max-width: 600px) {
+	.drawer {
+		top: auto;
+		left: 0;
+		width: 100%;
+		height: min(72dvh, 520px);
+		padding: 22px 18px calc(20px + env(safe-area-inset-bottom));
+		border-radius: 22px 22px 0 0;
+		box-shadow: 0 -20px 60px rgb(0 0 0 / 35%);
+		animation-name: drawer-from-bottom;
+	}
+
+	.skin-card {
+		flex-basis: 140px;
+	}
+
+	@keyframes drawer-from-bottom {
+		from {
+			transform: translateY(100%);
+		}
+		to {
+			transform: translateY(0);
+		}
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.drawer {
+		animation: none;
+	}
+
+	.settings-button {
+		transition: none;
 	}
 }

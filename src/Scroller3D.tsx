@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import * as THREE from 'three'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import type { Skin } from './skins'
 
 const MIN = 1
 const MAX = 90
@@ -43,7 +44,7 @@ const pad = (value: number) => String(value).padStart(2, '0')
 
 let introDone = false
 
-export function Scroller3D() {
+export function Scroller3D({ skin }: { skin: Skin }) {
   const mountRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<Engine | null>(null)
@@ -56,6 +57,8 @@ export function Scroller3D() {
   const targetRef = useRef(0)
   const progressRef = useRef(0)
   const swapRef = useRef<Swap | null>(null)
+  const skinRef = useRef(skin)
+  const applySkinRef = useRef<(() => void) | null>(null)
 
   const [active, setActive] = useState(INTRO_END)
   const [mode, setMode] = useState<'scroll' | 'timer'>('scroll')
@@ -67,6 +70,19 @@ export function Scroller3D() {
   useEffect(() => {
     activeRef.current = active
   }, [active])
+
+  useEffect(() => {
+    skinRef.current = skin
+    applySkinRef.current?.()
+  }, [skin])
+
+  // The settings icon lives outside .app, so expose the active UI colour globally too.
+  useEffect(() => {
+    const root = document.documentElement.style
+    root.setProperty('--scroller-digits', skin.scrollerDigits)
+    root.setProperty('--timer-digits', skin.timerDigits)
+    root.setProperty('--ui-color', mode === 'timer' ? skin.timerDigits : skin.scrollerDigits)
+  }, [skin, mode])
 
   const centerValue = useCallback((value: number) => {
     const engine = engineRef.current
@@ -125,13 +141,22 @@ export function Scroller3D() {
     const rail = new THREE.Group()
     scene.add(rail)
 
-    const wheelColor = new THREE.Color('#f8fafc')
-    const timerColor = new THREE.Color('#0b0b0d')
+    const wheelColor = new THREE.Color()
+    const timerColor = new THREE.Color()
     const currentColor = new THREE.Color()
     const baseGlow = new THREE.Color('#000000')
     const accentGlow = new THREE.Color('#1e1b4b')
-    const wheelShadow = new THREE.Color('#64748b')
-    const timerShadow = new THREE.Color('#000000')
+    const wheelShadow = new THREE.Color()
+    const timerShadow = new THREE.Color()
+
+    const applySkin = () => {
+      wheelColor.set(skinRef.current.scrollerDigits)
+      timerColor.set(skinRef.current.timerDigits)
+      wheelShadow.set(skinRef.current.scrollerShadow)
+      timerShadow.set(skinRef.current.timerShadow)
+    }
+    applySkinRef.current = applySkin
+    applySkin()
 
     const layout = () => {
       const engine = engineRef.current
@@ -436,6 +461,7 @@ export function Scroller3D() {
       backdrop.geometry.dispose()
       renderer.dispose()
       renderer.domElement.remove()
+      applySkinRef.current = null
       engineRef.current = null
     }
   }, [])
@@ -517,7 +543,15 @@ export function Scroller3D() {
   return (
     <div
       className={`app${mode === 'timer' ? ' is-timer' : ''}`}
-      style={{ '--digit-half': `${digitHalf}px` } as CSSProperties}
+      style={
+        {
+          '--digit-half': `${digitHalf}px`,
+          '--scroller-bg': skin.scrollerBackground,
+          '--scroller-digits': skin.scrollerDigits,
+          '--timer-bg': skin.timerBackground,
+          '--timer-digits': skin.timerDigits,
+        } as CSSProperties
+      }
     >
       <div className="stage" ref={mountRef} />
 
