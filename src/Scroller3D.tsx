@@ -8,9 +8,18 @@ const MAX = 90
 const PLUS = -1
 const INTRO_END = 10
 const VALUES = Array.from({ length: MAX - MIN + 1 }, (_, index) => MAX - index)
-const ALL_VALUES = [...VALUES, PLUS]
+// 0 is only used as the final countdown model; it is never a scrollable choice.
+const ALL_VALUES = [...VALUES, 0, PLUS]
 
 const indexOf = (value: number) => (value === PLUS ? MAX : MAX - value)
+
+const SWAP_MS = 180
+
+type Swap = {
+  from: number
+  to: number
+  startedAt: number
+}
 
 type Engine = {
   renderer: THREE.WebGLRenderer
@@ -40,10 +49,13 @@ export function Scroller3D() {
   const engineRef = useRef<Engine | null>(null)
   const activeRef = useRef(INTRO_END)
   const selectedRef = useRef(INTRO_END)
+  const displayRef = useRef(INTRO_END)
+  const secondsPhaseRef = useRef(false)
   const modeRef = useRef<'scroll' | 'timer'>('scroll')
   const kindRef = useRef<'countdown' | 'uptime'>('countdown')
   const targetRef = useRef(0)
   const progressRef = useRef(0)
+  const swapRef = useRef<Swap | null>(null)
 
   const [active, setActive] = useState(INTRO_END)
   const [mode, setMode] = useState<'scroll' | 'timer'>('scroll')
@@ -213,14 +225,47 @@ export function Scroller3D() {
       engine.shadow.color.copy(wheelShadow).lerp(timerShadow, progress)
       engine.shadow.opacity = 0.12 + progress * 0.06
 
+      const swapState = swapRef.current
+      let swap = 1
+      if (swapState) {
+        const t = Math.min(1, (performance.now() - swapState.startedAt) / SWAP_MS)
+        swap = 1 - Math.pow(1 - t, 3)
+        if (t >= 1) swapRef.current = null
+      }
+      const swapping = swapState !== null
+      const swapFrom = swapState?.from
+      const swapTo = swapState?.to
+
       engine.groups.forEach((group, value) => {
         const material = engine.materials.get(value)!
-        const selected = value === selectedRef.current ? progress : 0
+        const baseY = engine.baseY.get(value) ?? 0
+
+        // The 3D zero exists only for the last seconds of a countdown.
+        if (value === 0 && !(modeRef.current === 'timer' && selectedRef.current === 0)) {
+          group.position.y = baseY
+          group.position.z = -7
+          material.opacity = 0
+          material.color.copy(currentColor)
+          material.emissive.set(0x000000)
+          return
+        }
+
+        if (swapping && value === swapFrom) {
+          // Keep the outgoing model centred while the rail has already moved to the incoming one.
+          group.position.y = (engine.baseY.get(swapTo!) ?? 0) - 0.3 * (1 - swap)
+          group.position.z = 0
+          material.opacity = 1 - swap
+          material.color.copy(currentColor)
+          material.emissive.copy(baseGlow).lerp(accentGlow, (1 - swap) * progress * 0.18)
+          return
+        }
+
+        const selected = value === selectedRef.current ? progress * (swapping ? swap : 1) : 0
         const gone = value === selectedRef.current ? 0 : progress
 
-        group.position.y = (engine.baseY.get(value) ?? 0) - 0.3 * selected
+        group.position.y = baseY - 0.3 * selected
         group.position.z = -7 * gone
-        material.opacity = 1 - gone
+        material.opacity = value === selectedRef.current && swapping ? swap : 1 - gone
         material.color.copy(currentColor)
         material.emissive.copy(baseGlow).lerp(accentGlow, selected * progress * 0.18)
       })
@@ -406,11 +451,31 @@ export function Scroller3D() {
     return () => window.clearTimeout(timer)
   }, [mode, kind, remaining])
 
+  // The main 3D model tracks whole minutes, then switches to raw seconds below 01:00.
+  useEffect(() => {
+    if (mode !== 'timer' || kind !== 'countdown') return
+
+    const next = remaining >= 60 ? Math.ceil(remaining / 60) : remaining
+    secondsPhaseRef.current = remaining < 60
+    if (displayRef.current === next) return
+
+    const previous = displayRef.current
+    displayRef.current = next
+    selectedRef.current = next
+    activeRef.current = next
+    setActive(next)
+    swapRef.current = { from: previous, to: next, startedAt: performance.now() }
+    centerValue(next)
+  }, [mode, kind, remaining, centerValue])
+
   const enterTimer = useCallback((value: number) => {
     if (modeRef.current === 'timer') return
+    displayRef.current = value
+    secondsPhaseRef.current = false
     selectedRef.current = value
     activeRef.current = value
     setActive(value)
+    swapRef.current = null
     modeRef.current = 'timer'
     kindRef.current = value === PLUS ? 'uptime' : 'countdown'
     targetRef.current = 1
@@ -421,10 +486,17 @@ export function Scroller3D() {
 
   const exitTimer = useCallback(() => {
     if (modeRef.current !== 'timer') return
+    // Stopping during the seconds phase returns to 1; otherwise keep the number currently on screen.
+    const value = kindRef.current === 'countdown' && secondsPhaseRef.current
+      ? MIN
+      : selectedRef.current
+    secondsPhaseRef.current = false
+    swapRef.current = null
     modeRef.current = 'scroll'
     targetRef.current = 0
     setMode('scroll')
-    const value = selectedRef.current === 0 ? MIN : selectedRef.current
+    selectedRef.current = value
+    displayRef.current = value
     activeRef.current = value
     setActive(value)
     centerValue(value)
@@ -487,14 +559,20 @@ export function Scroller3D() {
             type="button"
             className="timer-hit"
             onClick={exitTimer}
-            aria-label="Stop the timer and return to the scroller"
+            aria-label={
+              kind === 'countdown' && remaining < 60
+                ? `${remaining} seconds remaining. Stop the timer`
+                : 'Stop the timer and return to the scroller'
+            }
           />
-          <div
-            className="timer-readout"
-            aria-label={`${minutes} minutes and ${seconds} seconds ${kind === 'uptime' ? 'elapsed' : 'remaining'}`}
-          >
-            {`${pad(minutes)}:${pad(seconds)}`}
-          </div>
+          {(kind === 'uptime' || remaining >= 60) && (
+            <div
+              className="timer-readout"
+              aria-label={`${minutes} minutes and ${seconds} seconds ${kind === 'uptime' ? 'elapsed' : 'remaining'}`}
+            >
+              {`${pad(minutes)}:${pad(seconds)}`}
+            </div>
+          )}
         </>
       )}
     </div>
