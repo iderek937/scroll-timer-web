@@ -259,7 +259,7 @@ body {
 	overflow-x: auto;
 	padding: 2px 2px 14px;
 	scroll-snap-type: x mandatory;
-	scrollbar-width: thin;
+	scrollbar-width: none;
 }
 
 .skin-card {
